@@ -1,3 +1,13 @@
+// ==UserScript==
+// @name         WME SDK Plus
+// @namespace    YOUR_UNIQUE_NAMESPACE    // Replace with your GitHub URL or another unique ID
+// @version      0.1.0                    // Or your desired starting version
+// @description  Helper library for Waze Map Editor scripts, extending WME SDK functionalities.
+// @author       YOUR_AUTHOR_NAME         // Replace with your name/handle
+// @license      MIT                      // Or the correct license for the code
+// @grant        none
+// ==/UserScript==
+//
 var initWmeSdkPlus=function(){"use strict";var Sr=Object.defineProperty,Mr=(n,t,o)=>t in n?Sr(n,t,{enumerable:!0,configurable:!0,writable:!0,value:o}):n[t]=o,lt=(n,t,o)=>Mr(n,typeof t!="symbol"?t+"":t,o),xt=typeof globalThis<"u"?globalThis:typeof window<"u"?window:typeof global<"u"?global:typeof self<"u"?self:{},$t={};/*! *****************************************************************************
   Copyright (C) Microsoft. All rights reserved.
   Licensed under the Apache License, Version 2.0 (the "License"); you may not use
