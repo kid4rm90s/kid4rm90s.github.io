@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WME SDK Keyboard Shortcut Implementation Guide</title>
+    <title>kid4rm90s - GitHub Pages Portfolio</title>
     <style>
         * {
             margin: 0;
@@ -21,7 +21,7 @@
         }
         
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
             background: white;
             border-radius: 10px;
@@ -138,67 +138,167 @@
             color: #666;
             font-size: 0.95em;
         }
+        
+        .registry-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .registry-table thead {
+            background: #f8f9fa;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .registry-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .registry-table td {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .registry-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .repo-name {
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .link-btn {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.9em;
+            margin-right: 8px;
+            transition: background 0.2s ease;
+        }
+        
+        .link-btn:hover {
+            background: #764ba2;
+        }
+        
+        .link-btn-secondary {
+            background: #6c757d;
+        }
+        
+        .link-btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        
+        .empty-state p {
+            margin-bottom: 20px;
+        }
+        
+        .add-repo-btn {
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 500;
+            display: inline-block;
+            transition: background 0.2s ease;
+        }
+        
+        .add-repo-btn:hover {
+            background: #218838;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🎮 WME SDK Keyboard Shortcut Implementation</h1>
-            <p>A comprehensive guide and demo for implementing keyboard shortcuts in Waze Map Editor</p>
+            <h1>📚 GitHub Pages Portfolio</h1>
+            <p>Central hub for tracking all deployed repositories and documentation</p>
         </header>
         
         <main>
             <div class="section">
-                <h2>📁 Project Files</h2>
+                <h2>� Deployed Repositories Registry</h2>
                 <div class="info-box">
-                    <strong>This project provides:</strong>
-                    <ul style="margin-left: 20px; margin-top: 10px;">
-                        <li>Complete implementation guide for WME SDK keyboard shortcuts</li>
-                        <li>Working demo script (Tampermonkey user script)</li>
-                        <li>Best practices and code examples</li>
-                    </ul>
+                    <strong>Quick Overview:</strong> This table tracks all GitHub Pages deployments and projects with live demos. Click on links to explore each project.
                 </div>
                 
-                <div class="files-grid">
-                    <a href="https://github.com/kid4rm90s/WMESDK-KEYBOARD-SHORTCUT-IMPLEMENTATION-GUIDE/blob/master/README.md" class="file-card" target="_blank">
-                        <h3><span class="file-icon">📄</span> README.md</h3>
-                        <p class="subtitle">Project overview and quick start guide. Start here to understand the project structure and setup instructions.</p>
-                        <span class="file-link">View on GitHub →</span>
-                    </a>
-                    
-                    <a href="https://github.com/kid4rm90s/WMESDK-KEYBOARD-SHORTCUT-IMPLEMENTATION-GUIDE/blob/master/SHORTCUT_IMPLEMENTATION_GUIDE.md" class="file-card" target="_blank">
-                        <h3><span class="file-icon">📚</span> Implementation Guide</h3>
-                        <p class="subtitle">Detailed guide on implementing keyboard shortcuts in WME SDK. Includes code examples and best practices.</p>
-                        <span class="file-link">View on GitHub →</span>
-                    </a>
-                    
-                    <a href="https://github.com/kid4rm90s/WMESDK-KEYBOARD-SHORTCUT-IMPLEMENTATION-GUIDE/blob/master/WME-Shortcut-Demo.user.js" class="file-card" target="_blank">
-                        <h3><span class="file-icon">⚙️</span> Demo Script</h3>
-                        <p class="subtitle">Working Tampermonkey user script demonstrating keyboard shortcut implementation with practical examples.</p>
-                        <span class="file-link">View on GitHub →</span>
-                    </a>
+                <table class="registry-table">
+                    <thead>
+                        <tr>
+                            <th>Repository Name</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Links</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="repo-name">🎮 WME Keyboard Shortcuts</td>
+                            <td>Complete guide for implementing keyboard shortcuts in Waze Map Editor SDK with working demo</td>
+                            <td><span class="status-badge status-active">Active</span></td>
+                            <td>
+                                <a href="https://github.com/kid4rm90s/WMESDK-KEYBOARD-SHORTCUT-IMPLEMENTATION-GUIDE" class="link-btn" target="_blank">GitHub</a>
+                                <a href="https://github.com/kid4rm90s/WMESDK-KEYBOARD-SHORTCUT-IMPLEMENTATION-GUIDE/blob/master/README.md" class="link-btn link-btn-secondary" target="_blank">Docs</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="info-box" style="background: #fff3cd; border-left-color: #ffc107; margin-top: 30px;">
+                    <strong>💡 To Add New Repositories:</strong>
+                    <p style="margin-top: 10px;">Edit this HTML file and add new rows to the table above. Use the same format as the example row. Include repo name, description, status badge, and links.</p>
                 </div>
             </div>
             
             <div class="section">
-                <h2>🚀 Quick Links</h2>
-                <div class="files-grid">
-                    <a href="https://github.com/kid4rm90s/WMESDK-KEYBOARD-SHORTCUT-IMPLEMENTATION-GUIDE" class="file-card" target="_blank">
-                        <h3><span class="file-icon">🔗</span> GitHub Repository</h3>
-                        <p class="subtitle">Access the full project repository with all source code and documentation.</p>
-                        <span class="file-link">Visit Repository →</span>
-                    </a>
-                    
-                    <div class="file-card" style="cursor: default;">
-                        <h3><span class="file-icon">❓</span> Need Help?</h3>
-                        <p class="subtitle">Refer to the Implementation Guide for detailed documentation and code examples for your use case.</p>
-                    </div>
+                <h2>🔍 How to Manage This Registry</h2>
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">Instructions:</h3>
+                    <ol style="margin-left: 20px; line-height: 1.8;">
+                        <li><strong>Adding a new project:</strong> Edit the `index.html` file and add a new table row with your repository details</li>
+                        <li><strong>Columns to fill:</strong>
+                            <ul style="margin-left: 20px; margin-top: 10px;">
+                                <li>Repository Name (with emoji for visual organization)</li>
+                                <li>Brief description of the project</li>
+                                <li>Status (Active, Archived, etc.)</li>
+                                <li>Links (GitHub repo, live demo, documentation)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Status badges:</strong> Use the CSS class `status-active` for active projects</li>
+                        <li><strong>Links:</strong> Use `link-btn` class for primary links and `link-btn-secondary` for documentation links</li>
+                    </ol>
                 </div>
             </div>
         </main>
         
         <footer>
-            <p>&copy; 2026 WME SDK Keyboard Shortcut Implementation Guide | Powered by GitHub Pages</p>
+            <p>&copy; 2026 kid4rm90s | GitHub Pages Portfolio | <a href="https://github.com/kid4rm90s" style="color: #667eea; text-decoration: none;" target="_blank">Visit GitHub Profile</a></p>
         </footer>
     </div>
 </body>
