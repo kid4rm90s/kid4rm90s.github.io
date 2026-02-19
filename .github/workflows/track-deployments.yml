@@ -53,7 +53,7 @@ jobs:
       
       - name: Update deployments.json
         run: |
-          python3 << 'PYTHON_SCRIPT'
+          cat > update_deployments.py << 'EOF'
           import json
           from datetime import datetime
 
@@ -90,11 +90,12 @@ jobs:
 
           with open('deployments.json', 'w') as f:
               json.dump(deployments, f, indent=2)
-          PYTHON_SCRIPT
+          EOF
+          python3 update_deployments.py
       
       - name: Update index.html with deployment status
         run: |
-          python3 << 'PYTHON_SCRIPT'
+          cat > update_index.py << 'EOF'
           import json
           import re
           from datetime import datetime
@@ -143,7 +144,8 @@ jobs:
 
           with open('index.html', 'w') as f:
               f.write(html_content)
-          PYTHON_SCRIPT
+          EOF
+          python3 update_index.py
       
       - name: Commit changes
         run: |
