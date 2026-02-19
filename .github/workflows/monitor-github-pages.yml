@@ -1,0 +1,166 @@
+name: Monitor GitHub Pages Deployments
+
+# Automatically detects GitHub Pages deployments
+on:
+  schedule:
+    # Check every 12 hours
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  monitor-github-pages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Check GitHub Pages status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat > check_pages.py << 'PYTHON_EOF'
+          import os
+          import json
+          import subprocess
+          from datetime import datetime
+
+          owner = "kid4rm90s"
+          
+          # Repos that have GitHub Pages enabled
+          pages_enabled_repos = [
+              "kid4rm90s.github.io",
+              "preeti2unicode",
+              # Add more repos with Pages enabled
+          ]
+
+          pages_deployments = []
+
+          for repo in pages_enabled_repos:
+              try:
+                  # Get Pages deployment info
+                  cmd = f'gh api repos/{owner}/{repo}/pages --jq "."'
+                  result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                  
+                  if result.returncode == 0 and result.stdout.strip():
+                      pages_info = json.loads(result.stdout)
+                      
+                      if pages_info.get('status') == 'built':
+                          deployment = {
+                              "repo": repo,
+                              "version": "GitHub Pages Active",
+                              "branch": pages_info.get('source', {}).get('branch', 'main'),
+                              "status": "success",
+                              "timestamp": datetime.utcnow().isoformat() + "Z"
+                          }
+                          pages_deployments.append(deployment)
+                          print(f"✓ {repo}: Pages deployed")
+              except Exception as e:
+                  pass
+
+          # Load existing
+          try:
+              with open('deployments.json', 'r') as f:
+                  deployments = json.load(f)
+          except:
+              deployments = []
+
+          # Add Pages deployments (one entry per repo)
+          for new in pages_deployments:
+              found = False
+              for i, dep in enumerate(deployments):
+                  if dep.get("repo") == new["repo"]:
+                      deployments[i] = new
+                      found = True
+                      break
+              if not found:
+                  deployments.append(new)
+
+          deployments.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+
+          with open('deployments.json', 'w') as f:
+              json.dump(deployments, f, indent=2)
+              f.write('\n')
+
+          print(f"Updated {len(pages_deployments)} deployments")
+          PYTHON_EOF
+          python3 check_pages.py
+
+      - name: Update index.html
+        run: |
+          cat > finalize_index.py << 'PYTHON_EOF'
+          import json
+          import re
+          from datetime import datetime
+
+          with open('deployments.json', 'r') as f:
+              deployments = json.load(f)
+
+          lines = []
+          lines.append('    <div class="section">')
+          lines.append('        <h2>Deployment Status</h2>')
+          lines.append('        <div class="deployment-grid">')
+
+          if deployments:
+              for dep in deployments:
+                  try:
+                      timestamp = dep.get("timestamp", "")
+                      dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                      formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                  except:
+                      formatted_time = timestamp
+
+                  status_badge = '✅'
+                  
+                  lines.append('            <div class="deployment-card">')
+                  lines.append(f'                <h3>{dep.get("repo")}</h3>')
+                  lines.append(f'                <p><strong>Version:</strong> {dep.get("version", "N/A")}</p>')
+                  lines.append(f'                <p><strong>Branch:</strong> {dep.get("branch", "N/A")}</p>')
+                  lines.append(f'                <p><strong>Status:</strong> {status_badge} {dep.get("status", "unknown")}</p>')
+                  lines.append(f'                <p><strong>Last Deployed:</strong> {formatted_time}</p>')
+                  lines.append('            </div>')
+          else:
+              lines.append('            <div style="padding: 40px 20px; text-align: center; color: #999; grid-column: 1/-1;">')
+              lines.append('                <p>No GitHub Pages deployments detected.</p>')
+              lines.append('            </div>')
+
+          lines.append('        </div>')
+          lines.append('    </div>')
+
+          deployment_html = '\n'.join(lines)
+
+          with open('index.html', 'r', encoding='utf-8') as f:
+              html_content = f.read()
+
+          pattern = r'<div class="section">\s*<h2>Deployment Status</h2>\s*<div class="deployment-grid">.*?</div>\s*</div>\s*</div>'
+          if re.search(pattern, html_content, re.DOTALL):
+              html_content = re.sub(pattern, deployment_html, html_content, count=1, flags=re.DOTALL)
+          else:
+              pattern2 = r'<div class="section">\s*<h2>Deployment Status</h2>.*?<div class="deployment-grid">.*?</div>\s*</div>'
+              if re.search(pattern2, html_content, re.DOTALL):
+                  html_content = re.sub(pattern2, deployment_html, html_content, count=1, flags=re.DOTALL)
+
+          with open('index.html', 'w', encoding='utf-8') as f:
+              f.write(html_content)
+          PYTHON_EOF
+          python3 finalize_index.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add deployments.json index.html
+          
+          if ! git diff --quiet --staged; then
+            git commit -m "chore: update github pages status [skip ci]"
+            git push origin ${{ github.ref_name }}
+          fi
