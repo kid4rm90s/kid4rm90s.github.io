@@ -1,0 +1,190 @@
+name: Auto-Detect Releases
+
+# Automatically detects releases from your repos and tracks them
+on:
+  schedule:
+    # Check every 6 hours for new releases across your repos
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-releases:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Fetch releases from GitHub API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat > fetch_releases.py << 'PYTHON_EOF'
+          import os
+          import json
+          import subprocess
+          from datetime import datetime
+          from pathlib import Path
+
+          gh_token = os.environ.get('GH_TOKEN')
+          
+          # Your username/org
+          owner = "kid4rm90s"
+          
+          # List of repo names to track (customize as needed)
+          repos_to_track = [
+              "preeti2unicode",
+              "WMESDK-KEYBOARD-SHORTCUT-IMPLEMENTATION-GUIDE",
+              # Add more repos here
+          ]
+
+          releases_found = []
+
+          for repo in repos_to_track:
+              try:
+                  # Get releases for this repo
+                  cmd = f'gh api repos/{owner}/{repo}/releases --jq ".[0]" --paginate'
+                  result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                  
+                  if result.returncode == 0 and result.stdout.strip():
+                      release_data = json.loads(result.stdout)
+                      
+                      if release_data:
+                          release = {
+                              "repo": repo,
+                              "version": release_data.get("tag_name", "unknown"),
+                              "branch": "main",
+                              "status": "success",
+                              "timestamp": release_data.get("published_at", datetime.utcnow().isoformat() + "Z")
+                          }
+                          releases_found.append(release)
+                          print(f"Found release for {repo}: {release['version']}")
+              except Exception as e:
+                  print(f"Error checking {repo}: {str(e)}")
+
+          # Load existing deployments
+          try:
+              with open('deployments.json', 'r') as f:
+                  deployments = json.load(f)
+          except (FileNotFoundError, json.JSONDecodeError):
+              deployments = []
+
+          # Add new releases (avoiding duplicates)
+          for new_release in releases_found:
+              existing = False
+              for dep in deployments:
+                  if dep.get("repo") == new_release["repo"] and dep.get("version") == new_release["version"]:
+                      existing = True
+                      break
+              
+              if not existing:
+                  deployments.append(new_release)
+                  print(f"Added {new_release['repo']} {new_release['version']}")
+
+          # Sort by timestamp descending
+          deployments.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+
+          # Write deployments.json
+          with open('deployments.json', 'w') as f:
+              json.dump(deployments, f, indent=2)
+              f.write('\n')
+
+          print(f"Total deployments: {len(deployments)}")
+          PYTHON_EOF
+          python3 fetch_releases.py
+
+      - name: Update index.html with deployment status
+        run: |
+          cat > update_index.py << 'PYTHON_EOF'
+          import json
+          import re
+          from datetime import datetime
+
+          deployments_file = 'deployments.json'
+          index_file = 'index.html'
+
+          try:
+              with open(deployments_file, 'r') as f:
+                  deployments = json.load(f)
+          except (FileNotFoundError, json.JSONDecodeError):
+              deployments = []
+
+          lines = []
+          lines.append('    <div class="section">')
+          lines.append('        <h2>Deployment Status</h2>')
+          lines.append('        <div class="deployment-grid">')
+
+          if deployments:
+              for dep in deployments:
+                  try:
+                      timestamp = dep.get("timestamp", "")
+                      dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                      formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                  except (ValueError, AttributeError):
+                      formatted_time = timestamp
+
+                  status_badge = '✅' if dep.get("status") == "success" else '❌'
+                  
+                  lines.append('            <div class="deployment-card">')
+                  lines.append(f'                <h3>{dep.get("repo", "Unknown")}</h3>')
+                  lines.append(f'                <p><strong>Version:</strong> {dep.get("version", "N/A")}</p>')
+                  lines.append(f'                <p><strong>Branch:</strong> {dep.get("branch", "N/A")}</p>')
+                  lines.append(f'                <p><strong>Status:</strong> {status_badge} {dep.get("status", "unknown")}</p>')
+                  lines.append(f'                <p><strong>Updated:</strong> {formatted_time}</p>')
+                  lines.append('            </div>')
+          else:
+              lines.append('            <div style="padding: 40px 20px; text-align: center; color: #999; grid-column: 1/-1;">')
+              lines.append('                <p>No deployments tracked yet.</p>')
+              lines.append('            </div>')
+
+          lines.append('        </div>')
+          lines.append('    </div>')
+
+          deployment_html = '\n'.join(lines)
+
+          with open(index_file, 'r', encoding='utf-8') as f:
+              html_content = f.read()
+
+          pattern = r'<div class="section">\s*<h2>Deployment Status</h2>\s*<div class="deployment-grid">.*?</div>\s*</div>\s*</div>'
+
+          if re.search(pattern, html_content, re.DOTALL):
+              html_content = re.sub(pattern, deployment_html, html_content, count=1, flags=re.DOTALL)
+          else:
+              pattern2 = r'<div class="section">\s*<h2>Deployment Status</h2>.*?<div class="deployment-grid">.*?</div>\s*</div>'
+              if re.search(pattern2, html_content, re.DOTALL):
+                  html_content = re.sub(pattern2, deployment_html, html_content, count=1, flags=re.DOTALL)
+              else:
+                  if '</main>' in html_content:
+                      indent = '        '
+                      html_to_insert = indent + deployment_html.replace('\n', '\n' + indent)
+                      html_content = html_content.replace('</main>', '\n' + html_to_insert + '\n    </main>')
+
+          with open(index_file, 'w', encoding='utf-8') as f:
+              f.write(html_content)
+
+          print("Updated index.html")
+          PYTHON_EOF
+          python3 update_index.py
+
+      - name: Commit changes if any
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add deployments.json index.html
+          
+          if ! git diff --quiet --staged; then
+            git commit -m "chore: auto-detect releases [skip ci]"
+            git push origin ${{ github.ref_name }}
+            echo "✓ Changes pushed"
+          else
+            echo "ℹ No new releases detected"
+          fi
