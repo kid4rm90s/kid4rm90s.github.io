@@ -12,6 +12,7 @@ on:
       branch:
         description: 'Branch name'
         required: false
+        default: 'main'
       status:
         description: 'Deployment status (success/failed)'
         required: false
@@ -22,13 +23,20 @@ on:
 jobs:
   update-deployments:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       
-      - name: Parse deployment info
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Parse and validate deployment info
         id: parse
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -43,7 +51,15 @@ jobs:
             STATUS="${{ github.event.client_payload.status }}"
           fi
           
+          # Apply defaults
           BRANCH=${BRANCH:-main}
+          STATUS=${STATUS:-success}
+          
+          # Validate required fields
+          if [ -z "$REPO_NAME" ] || [ -z "$VERSION" ]; then
+            echo "ERROR: repo_name and version are required"
+            exit 1
+          fi
           
           echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -52,25 +68,38 @@ jobs:
           echo "timestamp=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
       
       - name: Update deployments.json
+        env:
+          REPO_NAME: ${{ steps.parse.outputs.repo_name }}
+          VERSION: ${{ steps.parse.outputs.version }}
+          BRANCH: ${{ steps.parse.outputs.branch }}
+          STATUS: ${{ steps.parse.outputs.status }}
+          TIMESTAMP: ${{ steps.parse.outputs.timestamp }}
         run: |
-          cat > update_deployments.py << 'EOF'
+          cat > update_deployments.py << 'PYTHON_EOF'
           import json
-          from datetime import datetime
+          import os
+
+          # Get values from environment
+          repo_name = os.environ.get('REPO_NAME')
+          version = os.environ.get('VERSION')
+          branch = os.environ.get('BRANCH', 'main')
+          status = os.environ.get('STATUS', 'success')
+          timestamp = os.environ.get('TIMESTAMP')
 
           # Initialize deployments.json if not exists
+          deployments_file = 'deployments.json'
           try:
-              with open('deployments.json', 'r') as f:
+              with open(deployments_file, 'r') as f:
                   deployments = json.load(f)
-          except FileNotFoundError:
+          except (FileNotFoundError, json.JSONDecodeError):
               deployments = []
 
-          repo_name = "${{ steps.parse.outputs.repo_name }}"
           new_deployment = {
               "repo": repo_name,
-              "version": "${{ steps.parse.outputs.version }}",
-              "branch": "${{ steps.parse.outputs.branch }}",
-              "status": "${{ steps.parse.outputs.status }}",
-              "timestamp": "${{ steps.parse.outputs.timestamp }}"
+              "version": version,
+              "branch": branch,
+              "status": status,
+              "timestamp": timestamp
           }
 
           # Find and update existing repo or add new one
@@ -86,68 +115,105 @@ jobs:
               deployments.append(new_deployment)
 
           # Sort by timestamp descending
-          deployments.sort(key=lambda x: x["timestamp"], reverse=True)
+          deployments.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
 
-          with open('deployments.json', 'w') as f:
+          # Write with proper formatting
+          with open(deployments_file, 'w') as f:
               json.dump(deployments, f, indent=2)
-          EOF
+              f.write('\n')  # Add trailing newline
+
+          print(f"Updated deployment for {repo_name}")
+          PYTHON_EOF
           python3 update_deployments.py
       
       - name: Update index.html with deployment status
         run: |
-          cat > update_index.py << 'EOF'
+          cat > update_index.py << 'PYTHON_EOF'
           import json
           import re
           from datetime import datetime
 
-          with open('deployments.json', 'r') as f:
-              deployments = json.load(f)
+          deployments_file = 'deployments.json'
+          index_file = 'index.html'
+
+          # Read deployments
+          try:
+              with open(deployments_file, 'r') as f:
+                  deployments = json.load(f)
+          except (FileNotFoundError, json.JSONDecodeError):
+              deployments = []
 
           # Generate deployment status HTML
-          deployment_html = '    <div class="section">\n'
-          deployment_html += '        <h2>Deployment Status</h2>\n'
-          deployment_html += '        <div class="deployment-grid">\n'
+          lines = []
+          lines.append('    <div class="section">')
+          lines.append('        <h2>Deployment Status</h2>')
+          lines.append('        <div class="deployment-grid">')
 
           if deployments:
               for dep in deployments:
-                  timestamp = dep["timestamp"]
-                  dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                  formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
-                  status_badge = '✅' if dep["status"] == "success" else '❌'
+                  try:
+                      timestamp = dep.get("timestamp", "")
+                      dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                      formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                  except (ValueError, AttributeError):
+                      formatted_time = timestamp
+
+                  status_badge = '✅' if dep.get("status") == "success" else '❌'
                   
-                  deployment_html += '            <div class="deployment-card">\n'
-                  deployment_html += f'                <h3>{dep["repo"]}</h3>\n'
-                  deployment_html += f'                <p><strong>Version:</strong> {dep["version"]}</p>\n'
-                  deployment_html += f'                <p><strong>Branch:</strong> {dep["branch"]}</p>\n'
-                  deployment_html += f'                <p><strong>Status:</strong> {status_badge} {dep["status"]}</p>\n'
-                  deployment_html += f'                <p><strong>Updated:</strong> {formatted_time}</p>\n'
-                  deployment_html += '            </div>\n'
+                  lines.append('            <div class="deployment-card">')
+                  lines.append(f'                <h3>{dep.get("repo", "Unknown")}</h3>')
+                  lines.append(f'                <p><strong>Version:</strong> {dep.get("version", "N/A")}</p>')
+                  lines.append(f'                <p><strong>Branch:</strong> {dep.get("branch", "N/A")}</p>')
+                  lines.append(f'                <p><strong>Status:</strong> {status_badge} {dep.get("status", "unknown")}</p>')
+                  lines.append(f'                <p><strong>Updated:</strong> {formatted_time}</p>')
+                  lines.append('            </div>')
           else:
-              deployment_html += '            <div style="padding: 40px 20px; text-align: center; color: #999; grid-column: 1/-1;">\n'
-              deployment_html += '                <p>No deployments tracked yet. Trigger the workflow to start tracking!</p>\n'
-              deployment_html += '            </div>\n'
+              lines.append('            <div style="padding: 40px 20px; text-align: center; color: #999; grid-column: 1/-1;">')
+              lines.append('                <p>No deployments tracked yet. Trigger the workflow to start tracking!</p>')
+              lines.append('            </div>')
 
-          deployment_html += '        </div>\n'
-          deployment_html += '    </div>'
+          lines.append('        </div>')
+          lines.append('    </div>')
 
-          with open('index.html', 'r') as f:
+          deployment_html = '\n'.join(lines)
+
+          # Read current index.html
+          with open(index_file, 'r', encoding='utf-8') as f:
               html_content = f.read()
 
-          pattern = r'<div class="section">\s*<h2>.*?Deployment Status.*?</div>\s*</div>'
+          # Find and replace the deployment section
+          pattern = r'<div class="section">\s*<h2>Deployment Status</h2>.*?</div>\s*</div>'
 
           if re.search(pattern, html_content, re.DOTALL):
               html_content = re.sub(pattern, deployment_html, html_content, count=1, flags=re.DOTALL)
+              print("Updated existing deployment section")
           else:
-              indent = '            '
-              html_to_insert = indent + deployment_html.replace('\n', '\n' + indent)
-              html_content = html_content.replace('</main>', '\n' + html_to_insert + '\n        </main>')
+              # Add before closing main tag if section doesn't exist
+              if '</main>' in html_content:
+                  indent = '        '
+                  html_to_insert = indent + deployment_html.replace('\n', '\n' + indent)
+                  html_content = html_content.replace('</main>', '\n' + html_to_insert + '\n    </main>')
+                  print("Added new deployment section")
+              else:
+                  print("Warning: Could not find </main> tag in index.html")
 
-          with open('index.html', 'w') as f:
+          with open(index_file, 'w', encoding='utf-8') as f:
               f.write(html_content)
-          EOF
+          PYTHON_EOF
           python3 update_index.py
       
-      - name: Commit changes
+      - name: Verify changes
+        run: |
+          echo "=== deployments.json ===" 
+          cat deployments.json
+          echo ""
+          echo "=== Checking index.html ===" 
+          grep -c "deployment-grid" index.html && echo "✓ Deployment section found in index.html" || echo "✗ Deployment section missing"
+      
+      - name: Cleanup temporary files
+        run: rm -f update_deployments.py update_index.py
+      
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -155,6 +221,9 @@ jobs:
           git add deployments.json index.html
           
           if ! git diff --quiet --staged; then
-            git commit -m "chore: update deployment status"
-            git push
+            git commit -m "chore: update deployment status [skip ci]"
+            git push origin ${{ github.ref_name }}
+            echo "✓ Changes pushed successfully"
+          else
+            echo "ℹ No changes to commit"
           fi
