@@ -1,0 +1,167 @@
+name: Notify on Release
+
+# Triggers from any of your repos that have this workflow
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      repo_name:
+        description: 'Repository name'
+        required: true
+      version:
+        description: 'Version tag'
+        required: true
+
+jobs:
+  update-deployment:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: kid4rm90s/kid4rm90s.github.io
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Extract release info
+        id: release-info
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            REPO_NAME="${{ github.event.repository.name }}"
+            VERSION="${{ github.event.release.tag_name }}"
+            BRANCH="main"
+          else
+            REPO_NAME="${{ github.event.inputs.repo_name }}"
+            VERSION="${{ github.event.inputs.version }}"
+            BRANCH="main"
+          fi
+          
+          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "timestamp=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+      - name: Update deployment tracking
+        env:
+          REPO_NAME: ${{ steps.release-info.outputs.repo_name }}
+          VERSION: ${{ steps.release-info.outputs.version }}
+          BRANCH: ${{ steps.release-info.outputs.branch }}
+          TIMESTAMP: ${{ steps.release-info.outputs.timestamp }}
+        run: |
+          cat > update_deployment.py << 'PYTHON_EOF'
+          import json
+          import os
+
+          repo_name = os.environ.get('REPO_NAME')
+          version = os.environ.get('VERSION')
+          branch = os.environ.get('BRANCH', 'main')
+          timestamp = os.environ.get('TIMESTAMP')
+
+          try:
+              with open('deployments.json', 'r') as f:
+                  deployments = json.load(f)
+          except (FileNotFoundError, json.JSONDecodeError):
+              deployments = []
+
+          new_deployment = {
+              "repo": repo_name,
+              "version": version,
+              "branch": branch,
+              "status": "success",
+              "timestamp": timestamp
+          }
+
+          existing_index = None
+          for i, dep in enumerate(deployments):
+              if dep.get("repo") == repo_name and dep.get("version") == version:
+                  existing_index = i
+                  break
+
+          if existing_index is None:
+              deployments.append(new_deployment)
+
+          deployments.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+
+          with open('deployments.json', 'w') as f:
+              json.dump(deployments, f, indent=2)
+              f.write('\n')
+
+          print(f"Recorded release: {repo_name} {version}")
+          PYTHON_EOF
+          python3 update_deployment.py
+
+      - name: Regenerate index.html
+        run: |
+          cat > regenerate_index.py << 'PYTHON_EOF'
+          import json
+          import re
+          from datetime import datetime
+
+          with open('deployments.json', 'r') as f:
+              deployments = json.load(f)
+
+          lines = []
+          lines.append('    <div class="section">')
+          lines.append('        <h2>Deployment Status</h2>')
+          lines.append('        <div class="deployment-grid">')
+
+          if deployments:
+              for dep in deployments:
+                  try:
+                      timestamp = dep.get("timestamp", "")
+                      dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                      formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                  except (ValueError, AttributeError):
+                      formatted_time = timestamp
+
+                  status_badge = '✅'
+                  
+                  lines.append('            <div class="deployment-card">')
+                  lines.append(f'                <h3>{dep.get("repo", "Unknown")}</h3>')
+                  lines.append(f'                <p><strong>Version:</strong> {dep.get("version", "N/A")}</p>')
+                  lines.append(f'                <p><strong>Branch:</strong> {dep.get("branch", "N/A")}</p>')
+                  lines.append(f'                <p><strong>Status:</strong> {status_badge} Success</p>')
+                  lines.append(f'                <p><strong>Released:</strong> {formatted_time}</p>')
+                  lines.append('            </div>')
+          else:
+              lines.append('            <div style="padding: 40px 20px; text-align: center; color: #999; grid-column: 1/-1;">')
+              lines.append('                <p>No releases tracked yet.</p>')
+              lines.append('            </div>')
+
+          lines.append('        </div>')
+          lines.append('    </div>')
+
+          deployment_html = '\n'.join(lines)
+
+          with open('index.html', 'r', encoding='utf-8') as f:
+              html_content = f.read()
+
+          pattern = r'<div class="section">\s*<h2>Deployment Status</h2>\s*<div class="deployment-grid">.*?</div>\s*</div>\s*</div>'
+          if re.search(pattern, html_content, re.DOTALL):
+              html_content = re.sub(pattern, deployment_html, html_content, count=1, flags=re.DOTALL)
+          else:
+              pattern2 = r'<div class="section">\s*<h2>Deployment Status</h2>.*?<div class="deployment-grid">.*?</div>\s*</div>'
+              if re.search(pattern2, html_content, re.DOTALL):
+                  html_content = re.sub(pattern2, deployment_html, html_content, count=1, flags=re.DOTALL)
+
+          with open('index.html', 'w', encoding='utf-8') as f:
+              f.write(html_content)
+
+          print("Updated index.html")
+          PYTHON_EOF
+          python3 regenerate_index.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add deployments.json index.html
+          
+          if ! git diff --quiet --staged; then
+            git commit -m "chore: record new release [skip ci]"
+            git push origin ${{ github.ref_name }}
+          fi
