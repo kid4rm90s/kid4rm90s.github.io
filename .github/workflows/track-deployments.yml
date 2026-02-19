@@ -96,7 +96,7 @@ jobs:
       
       - name: Update index.html with deployment status
         run: |
-          python3 << 'EOF'
+          python3 << 'PYTHON_EOF'
           import json
           import re
           from datetime import datetime
@@ -106,58 +106,59 @@ jobs:
               deployments = json.load(f)
           
           # Generate deployment status HTML
-          deployment_html = """    <div class="section">
-        <h2>📦 Deployment Status</h2>
-        <div class="deployment-grid">
-"""
+          deployment_html = '    <div class="section">\n'
+          deployment_html += '        <h2>📦 Deployment Status</h2>\n'
+          deployment_html += '        <div class="deployment-grid">\n'
           
-          for dep in deployments:
-              timestamp = dep["timestamp"]
-              # Parse and format timestamp
-              dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-              formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
-              
-              status_badge = '✅' if dep["status"] == "success" else '❌'
-              
-              deployment_html += f"""            <div class="deployment-card">
-                <h3>{dep["repo"]}</h3>
-                <p><strong>Version:</strong> {dep["version"]}</p>
-                <p><strong>Branch:</strong> {dep["branch"]}</p>
-                <p><strong>Status:</strong> {status_badge} {dep["status"]}</p>
-                <p><strong>Updated:</strong> {formatted_time}</p>
-            </div>
-"""
+          if deployments:
+              for dep in deployments:
+                  timestamp = dep["timestamp"]
+                  dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                  formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                  status_badge = '✅' if dep["status"] == "success" else '❌'
+                  
+                  deployment_html += '            <div class="deployment-card">\n'
+                  deployment_html += f'                <h3>{dep["repo"]}</h3>\n'
+                  deployment_html += f'                <p><strong>Version:</strong> {dep["version"]}</p>\n'
+                  deployment_html += f'                <p><strong>Branch:</strong> {dep["branch"]}</p>\n'
+                  deployment_html += f'                <p><strong>Status:</strong> {status_badge} {dep["status"]}</p>\n'
+                  deployment_html += f'                <p><strong>Updated:</strong> {formatted_time}</p>\n'
+                  deployment_html += '            </div>\n'
+          else:
+              deployment_html += '            <div style="padding: 40px 20px; text-align: center; color: #999; grid-column: 1/-1;">\n'
+              deployment_html += '                <p>No deployments tracked yet. Trigger the workflow to start tracking!</p>\n'
+              deployment_html += '            </div>\n'
           
-          deployment_html += """        </div>
-    </div>"""
+          deployment_html += '        </div>\n'
+          deployment_html += '    </div>'
           
           # Read current index.html
           with open('index.html', 'r') as f:
               html_content = f.read()
           
-          # Find and replace the deployment section
-          pattern = r'<div class="section">\s*<h2>📦 Deployment Status</h2>.*?</div>\s*</div>'
+          # Find and replace the deployment section using a simpler pattern
+          pattern = r'<div class="section">\s*<h2>.*?📦 Deployment Status.*?</div>\s*</div>'
           
           if re.search(pattern, html_content, re.DOTALL):
-              html_content = re.sub(pattern, deployment_html, html_content, flags=re.DOTALL)
+              html_content = re.sub(pattern, deployment_html, html_content, count=1, flags=re.DOTALL)
           else:
               # If section doesn't exist, add it before closing main tag
-              html_content = html_content.replace('</main>', f'{deployment_html}\n</main>')
+              html_content = html_content.replace('</main>', '\n            ' + deployment_html.replace('\n', '\n            ') + '\n        </main>')
           
           with open('index.html', 'w') as f:
               f.write(html_content)
-          EOF
+          PYTHON_EOF
       
       - name: Add CSS for deployment cards
         run: |
-          python3 << 'EOF'
+          python3 << 'PYTHON_EOF'
           import re
           
           with open('index.html', 'r') as f:
               html_content = f.read()
           
           # CSS to add
-          css_code = """
+          css_code = '''
         .deployment-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -192,17 +193,16 @@ jobs:
         
         .deployment-card strong {
             color: #333;
-        }"""
+        }'''
           
           # Check if CSS is already there
           if ".deployment-grid" not in html_content:
-              # Find the closing style tag
-              pattern = r'(</style>)'
-              html_content = re.sub(pattern, f'{css_code}\n    </style>', html_content)
+              # Find the closing style tag and add CSS before it
+              html_content = html_content.replace('</style>', css_code + '\n    </style>')
               
               with open('index.html', 'w') as f:
                   f.write(html_content)
-          EOF
+          PYTHON_EOF
       
       - name: Commit changes
         run: |
