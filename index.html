@@ -232,6 +232,42 @@
         .add-repo-btn:hover {
             background: #218838;
         }
+        
+        .deployment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .deployment-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .deployment-card:hover {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.2);
+            transform: translateY(-4px);
+        }
+        
+        .deployment-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .deployment-card p {
+            margin: 8px 0;
+            color: #555;
+            font-size: 0.95em;
+        }
+        
+        .deployment-card strong {
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -277,7 +313,16 @@
             </div>
             
             <div class="section">
-                <h2>🔍 How to Manage This Registry</h2>
+                <h2>� Deployment Status</h2>
+                <div class="deployment-grid">
+                    <div style="padding: 40px 20px; text-align: center; color: #999; grid-column: 1/-1;">
+                        <p>No deployments tracked yet. Trigger the workflow to start tracking!</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>�🔍 How to Manage This Registry</h2>
                 <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
                     <h3 style="color: #667eea; margin-bottom: 15px;">Instructions:</h3>
                     <ol style="margin-left: 20px; line-height: 1.8;">
