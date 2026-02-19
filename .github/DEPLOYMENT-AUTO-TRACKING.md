@@ -93,6 +93,7 @@ Automatically detects GitHub Pages deployments on your repositories.
    pages_enabled_repos = [
        "kid4rm90s.github.io",
        "preeti2unicode",
+       "NepaliBStoAD",
        # Add repos with Pages enabled
    ]
    ```
