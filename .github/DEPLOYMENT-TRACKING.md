@@ -9,6 +9,7 @@ This GitHub Actions workflow automatically tracks deployments across your reposi
    - **Repository Dispatch**: From other repos, send a webhook event to trigger the update
 
 2. **What Gets Updated**:
+
    - `deployments.json` - Stores all deployment metadata
    - `index.html` - Displays deployment status cards with version, timestamp, branch, and status
 
@@ -27,7 +28,7 @@ This GitHub Actions workflow automatically tracks deployments across your reposi
 5. Click **"Run workflow"**
 
 The workflow will:
-- Record the deployment in `deployments.json`
+
 - Update `index.html` with the new deployment card
 - Automatically commit and push changes
 
@@ -69,7 +70,7 @@ jobs:
 
 ## File Structure
 
-```
+```text
 kid4rm90s.github.io/
 ├── .github/
 │   └── workflows/
@@ -103,6 +104,7 @@ kid4rm90s.github.io/
 ## Deployment Card Display
 
 The workflow automatically generates styled cards that display:
+
 - ✅ Repository name
 - Version/tag
 - Branch name
@@ -116,6 +118,7 @@ Cards are sorted by most recent deployment first.
 ### Change Deployment Grid Layout
 
 Edit `.deployment-grid` CSS in `index.html`:
+
 ```css
 .deployment-grid {
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); /* Adjust minmax values */
@@ -125,6 +128,7 @@ Edit `.deployment-grid` CSS in `index.html`:
 ### Add More Status Types
 
 Modify the workflow in `.github/workflows/track-deployments.yml`:
+
 ```python
 status_badge = '⚠️' if dep["status"] == "warning" else '✅' if dep["status"] == "success" else '❌'
 ```
@@ -136,14 +140,17 @@ Edit the `.deployment-card` CSS in `index.html` to change colors, hover effects,
 ## Troubleshooting
 
 ### Workflow doesn't commit changes
+
 - Ensure the repository has write permissions enabled
 - Check that the workflow has `contents: write` permission (GitHub automatically enables this)
 
 ### Deployments not showing on index.html
+
 - Verify `deployments.json` was created at the repository root
 - Check workflow logs in the Actions tab for errors
 
 ### Rate limiting issues
+
 - The workflow is optimized to avoid unnecessary API calls
 - If using repository_dispatch frequently, add delays between triggers
 

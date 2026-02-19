@@ -5,7 +5,7 @@ This GitHub Actions system automatically tracks deployments across your reposito
 ## 🚀 Quick Start: Three Ways to Track Deployments
 
 | Method | Trigger | Setup | Latency |
-|--------|---------|-------|---------|
+| --- | --- | --- | --- |
 | **Auto Release Check** | Every 6 hours | Edit repo list | ~6 hours |
 | **Release Auto-Notify** | On release creation | Copy workflow | ~1 minute |
 | **Manual Trigger** | You decide | None | Immediate |
@@ -18,10 +18,11 @@ This GitHub Actions system automatically tracks deployments across your reposito
 
 Automatically checks your repositories for new releases every 6 hours and updates the portfolio.
 
-### Setup:
+### Setup
 
 1. Open `.github/workflows/auto-detect-releases.yml`
 2. Find the `repos_to_track` list:
+
    ```python
    repos_to_track = [
        "preeti2unicode",
@@ -29,10 +30,12 @@ Automatically checks your repositories for new releases every 6 hours and update
        # Add your repo names here
    ]
    ```
+
 3. Add your repository names
 4. Commit and push
 
-### How it works:
+### How it works
+
 - Runs automatically every 6 hours ⏰
 - Fetches latest release from each repo
 - Updates `deployments.json` and `index.html`
@@ -64,7 +67,8 @@ To get instant notifications, copy this workflow to each of your repositories:
 
 **No configuration needed!** The workflow auto-detects repo name and version.
 
-### How it works:
+### How it works
+
 - You create a GitHub release 📦
 - Workflow triggers automatically ⚡
 - Portfolio updates within 1 minute ✅
@@ -78,13 +82,13 @@ To get instant notifications, copy this workflow to each of your repositories:
 
 Automatically detects GitHub Pages deployments on your repositories.
 
-### Setup:
 
 1. Enable GitHub Pages on your repositories:
    - Go to Settings → Pages
    - Select source branch (usually `main` or `gh-pages`)
 
 2. Edit `.github/workflows/monitor-github-pages.yml`:
+
    ```python
    pages_enabled_repos = [
        "kid4rm90s.github.io",
@@ -95,7 +99,8 @@ Automatically detects GitHub Pages deployments on your repositories.
 
 3. Commit and push
 
-### How it works:
+### How it works
+
 - Checks every 12 hours ⏰
 - Detects GitHub Pages deployments
 - Updates portfolio with Pages status
@@ -109,7 +114,7 @@ Automatically detects GitHub Pages deployments on your repositories.
 
 Manually trigger anytime from the Actions tab.
 
-### Usage:
+### Usage
 
 1. Go to **Actions** tab
 2. Select **"Track Deployments"**
@@ -119,13 +124,13 @@ Manually trigger anytime from the Actions tab.
    - `version`: Version tag (e.g., `v1.0.0`)
    - `branch`: Branch name (optional)
    - `status`: `success` or `failed`
-5. Click **"Run workflow"**
+5. Click **"Run workflow"****
 
 ---
 
 ## 📊 Recommended Setup for Best Results
 
-### For Maximum Automation:
+### For Maximum Automation
 
 1. **Enable Release Auto-Detect:**
    - Edit `auto-detect-releases.yml`
@@ -142,7 +147,8 @@ Manually trigger anytime from the Actions tab.
    - Edit `monitor-github-pages.yml` to add repo names
    - ✅ Done! Checks every 12 hours
 
-### Result:
+### Result
+
 - ✅ New release created → Updates in ~1 minute
 - ✅ No release, just Pages update → Updates every 12 hours
 - ✅ Scheduled check → Updates every 6 hours
@@ -162,6 +168,7 @@ schedule:
 ```
 
 Common examples:
+
 ```yaml
 '0 * * * *'      # Every hour
 '0 0 * * *'      # Daily at midnight UTC
@@ -229,7 +236,7 @@ index.html                          # Auto-updated display
 
 ## ⚙️ Integration with CI/CD
 
-### Trigger from GitHub Actions:
+### Trigger from GitHub Actions
 
 ```yaml
 - name: Update Deployment Portfolio
@@ -243,7 +250,7 @@ index.html                          # Auto-updated display
     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-### Trigger from Shell Script:
+### Trigger from Shell Script
 
 ```bash
 gh workflow run track-deployments.yml \
@@ -281,16 +288,19 @@ Yes! Keep `track-deployments.yml` for:
 
 ## 📅 Workflow Schedule Examples
 
-### Strict Release Tracking:
+### Strict Release Tracking
+
 - Auto-Detect: Every 6 hours
 - Release-Notify: On new release (instant)
 
-### Comprehensive Monitoring:
+### Comprehensive Monitoring
+
 - Release-Notify: On new release (instant)
 - Auto-Detect: Every 4 hours
 - Pages Monitor: Every 12 hours
 
-### Minimal Setup:
+### Minimal Setup
+
 - Manual trigger only
 - No scheduled tasks
 
@@ -307,4 +317,4 @@ Yes! Keep `track-deployments.yml` for:
 
 ---
 
-For GitHub Actions docs: https://docs.github.com/en/actions
+[GitHub Actions Documentation](https://docs.github.com/en/actions)
