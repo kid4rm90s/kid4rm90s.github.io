@@ -1,9 +1,7 @@
 name: Monitor GitHub Pages Deployments
 
-# Automatically detects GitHub Pages deployments
 on:
   schedule:
-    # Check every 12 hours
     - cron: '0 */12 * * *'
   workflow_dispatch:
 
@@ -30,47 +28,64 @@ jobs:
           cat > check_pages.py << 'PYTHON_EOF'
           import os
           import json
-          import subprocess
+          import urllib.request
+          import urllib.error
           from datetime import datetime
 
           owner = "kid4rm90s"
+          gh_token = os.environ.get('GH_TOKEN', '')
           
-          # Repos that have GitHub Pages enabled
           pages_enabled_repos = [
               "kid4rm90s.github.io",
               "preeti2unicode",
-              # Add more repos with Pages enabled
           ]
 
           pages_deployments = []
 
           for repo in pages_enabled_repos:
               try:
-                  # Get Pages deployment info
-                  cmd = f'gh api repos/{owner}/{repo}/pages --jq "."'
-                  result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                  url = f'https://api.github.com/repos/{owner}/{repo}/pages'
+                  headers = {
+                      'Authorization': f'token {gh_token}',
+                      'Accept': 'application/vnd.github.v3+json'
+                  }
                   
-                  if result.returncode == 0 and result.stdout.strip():
-                      pages_info = json.loads(result.stdout)
-                      
-                      if pages_info.get('status') == 'built':
-                          deployment = {
-                              "repo": repo,
-                              "version": "GitHub Pages Active",
-                              "branch": pages_info.get('source', {}).get('branch', 'main'),
-                              "status": "success",
-                              "timestamp": datetime.utcnow().isoformat() + "Z"
-                          }
-                          pages_deployments.append(deployment)
-                          print(f"✓ {repo}: Pages deployed")
+                  req = urllib.request.Request(url, headers=headers)
+                  
+                  try:
+                      with urllib.request.urlopen(req) as response:
+                          pages_info = json.loads(response.read().decode())
+                          
+                          if pages_info.get('status') == 'built':
+                              deployment = {
+                                  "repo": repo,
+                                  "version": "GitHub Pages Active",
+                                  "branch": pages_info.get('source', {}).get('branch', 'main'),
+                                  "status": "success",
+                                  "timestamp": datetime.utcnow().isoformat() + "Z"
+                              }
+                              pages_deployments.append(deployment)
+                              print(f"✓ {repo}: Pages deployed")
+                          else:
+                              print(f"ℹ {repo}: Pages status={pages_info.get('status', 'unknown')}")
+                  
+                  except urllib.error.HTTPError as e:
+                      error_msg = e.read().decode()
+                      print(f"✗ {repo}: HTTP {e.code} - {error_msg[:200]}")
+                  except Exception as e:
+                      print(f"✗ {repo}: Error - {str(e)}")
+              
               except Exception as e:
-                  pass
+                  print(f"✗ {repo}: Unexpected error - {str(e)}")
 
           # Load existing
           try:
               with open('deployments.json', 'r') as f:
                   deployments = json.load(f)
-          except:
+          except FileNotFoundError:
+              deployments = []
+          except json.JSONDecodeError as e:
+              print(f"Error parsing deployments.json: {e}")
               deployments = []
 
           # Add Pages deployments (one entry per repo)
@@ -90,7 +105,7 @@ jobs:
               json.dump(deployments, f, indent=2)
               f.write('\n')
 
-          print(f"Updated {len(pages_deployments)} deployments")
+          print(f"Total tracked: {len(deployments)} deployments")
           PYTHON_EOF
           python3 check_pages.py
 
@@ -101,8 +116,12 @@ jobs:
           import re
           from datetime import datetime
 
-          with open('deployments.json', 'r') as f:
-              deployments = json.load(f)
+          try:
+              with open('deployments.json', 'r') as f:
+                  deployments = json.load(f)
+          except Exception as e:
+              print(f"Error loading deployments.json: {e}")
+              deployments = []
 
           lines = []
           lines.append('    <div class="section">')
@@ -113,15 +132,18 @@ jobs:
               for dep in deployments:
                   try:
                       timestamp = dep.get("timestamp", "")
-                      dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                      formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
-                  except:
+                      if timestamp:
+                          dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                          formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                      else:
+                          formatted_time = "Unknown"
+                  except Exception as e:
                       formatted_time = timestamp
 
                   status_badge = '✅'
                   
                   lines.append('            <div class="deployment-card">')
-                  lines.append(f'                <h3>{dep.get("repo")}</h3>')
+                  lines.append(f'                <h3>{dep.get("repo", "Unknown")}</h3>')
                   lines.append(f'                <p><strong>Version:</strong> {dep.get("version", "N/A")}</p>')
                   lines.append(f'                <p><strong>Branch:</strong> {dep.get("branch", "N/A")}</p>')
                   lines.append(f'                <p><strong>Status:</strong> {status_badge} {dep.get("status", "unknown")}</p>')
@@ -143,13 +165,19 @@ jobs:
           pattern = r'<div class="section">\s*<h2>Deployment Status</h2>\s*<div class="deployment-grid">.*?</div>\s*</div>\s*</div>'
           if re.search(pattern, html_content, re.DOTALL):
               html_content = re.sub(pattern, deployment_html, html_content, count=1, flags=re.DOTALL)
+              print("Updated existing deployment section")
           else:
               pattern2 = r'<div class="section">\s*<h2>Deployment Status</h2>.*?<div class="deployment-grid">.*?</div>\s*</div>'
               if re.search(pattern2, html_content, re.DOTALL):
                   html_content = re.sub(pattern2, deployment_html, html_content, count=1, flags=re.DOTALL)
+                  print("Updated existing deployment section (fallback)")
+              else:
+                  print("Warning: Could not find deployment section in index.html")
 
           with open('index.html', 'w', encoding='utf-8') as f:
               f.write(html_content)
+          
+          print("Successfully updated index.html")
           PYTHON_EOF
           python3 finalize_index.py
 
@@ -162,5 +190,8 @@ jobs:
           
           if ! git diff --quiet --staged; then
             git commit -m "chore: update github pages status [skip ci]"
-            git push origin ${{ github.ref_name }}
+            git push origin ${{ github.ref_name }} || echo "Push failed - may need authentication"
+            echo "✓ Changes pushed"
+          else
+            echo "ℹ No changes detected"
           fi
