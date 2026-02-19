@@ -1,0 +1,213 @@
+name: Track Deployments
+
+# Triggered by:
+# 1. Workflow completion from other repos (via workflow_run in those repos)
+# 2. Manual dispatch from Actions tab
+on:
+  workflow_dispatch:
+    inputs:
+      repo_name:
+        description: 'Repository name (e.g., my-repo)'
+        required: true
+      version:
+        description: 'Version/Tag (e.g., v1.0.0)'
+        required: true
+      branch:
+        description: 'Branch name'
+        required: false
+      status:
+        description: 'Deployment status (success/failed)'
+        required: false
+        default: 'success'
+  repository_dispatch:
+    types: [repo-deployed]
+
+jobs:
+  update-deployments:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Parse deployment info
+        id: parse
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REPO_NAME="${{ github.event.inputs.repo_name }}"
+            VERSION="${{ github.event.inputs.version }}"
+            BRANCH="${{ github.event.inputs.branch }}"
+            STATUS="${{ github.event.inputs.status }}"
+          else
+            REPO_NAME="${{ github.event.client_payload.repo_name }}"
+            VERSION="${{ github.event.client_payload.version }}"
+            BRANCH="${{ github.event.client_payload.branch }}"
+            STATUS="${{ github.event.client_payload.status }}"
+          fi
+          
+          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "timestamp=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+      
+      - name: Update deployments.json
+        run: |
+          if [ ! -f "deployments.json" ]; then
+            echo "[]" > deployments.json
+          fi
+          
+          # Create temporary file with updated deployment info
+          python3 << 'EOF'
+          import json
+          from datetime import datetime
+          
+          with open('deployments.json', 'r') as f:
+              deployments = json.load(f)
+          
+          # Find and update existing repo or add new one
+          repo_name = "${{ steps.parse.outputs.repo_name }}"
+          new_deployment = {
+              "repo": repo_name,
+              "version": "${{ steps.parse.outputs.version }}",
+              "branch": "${{ steps.parse.outputs.branch }}" or "main",
+              "status": "${{ steps.parse.outputs.status }}",
+              "timestamp": "${{ steps.parse.outputs.timestamp }}"
+          }
+          
+          existing_index = None
+          for i, dep in enumerate(deployments):
+              if dep.get("repo") == repo_name:
+                  existing_index = i
+                  break
+          
+          if existing_index is not None:
+              deployments[existing_index] = new_deployment
+          else:
+              deployments.append(new_deployment)
+          
+          # Sort by timestamp descending
+          deployments.sort(key=lambda x: x["timestamp"], reverse=True)
+          
+          with open('deployments.json', 'w') as f:
+              json.dump(deployments, f, indent=2)
+          EOF
+      
+      - name: Update index.html with deployment status
+        run: |
+          python3 << 'EOF'
+          import json
+          import re
+          from datetime import datetime
+          
+          # Read deployments
+          with open('deployments.json', 'r') as f:
+              deployments = json.load(f)
+          
+          # Generate deployment status HTML
+          deployment_html = """    <div class="section">
+        <h2>📦 Deployment Status</h2>
+        <div class="deployment-grid">
+"""
+          
+          for dep in deployments:
+              timestamp = dep["timestamp"]
+              # Parse and format timestamp
+              dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+              formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+              
+              status_badge = '✅' if dep["status"] == "success" else '❌'
+              
+              deployment_html += f"""            <div class="deployment-card">
+                <h3>{dep["repo"]}</h3>
+                <p><strong>Version:</strong> {dep["version"]}</p>
+                <p><strong>Branch:</strong> {dep["branch"]}</p>
+                <p><strong>Status:</strong> {status_badge} {dep["status"]}</p>
+                <p><strong>Updated:</strong> {formatted_time}</p>
+            </div>
+"""
+          
+          deployment_html += """        </div>
+    </div>"""
+          
+          # Read current index.html
+          with open('index.html', 'r') as f:
+              html_content = f.read()
+          
+          # Find and replace the deployment section
+          pattern = r'<div class="section">\s*<h2>📦 Deployment Status</h2>.*?</div>\s*</div>'
+          
+          if re.search(pattern, html_content, re.DOTALL):
+              html_content = re.sub(pattern, deployment_html, html_content, flags=re.DOTALL)
+          else:
+              # If section doesn't exist, add it before closing main tag
+              html_content = html_content.replace('</main>', f'{deployment_html}\n</main>')
+          
+          with open('index.html', 'w') as f:
+              f.write(html_content)
+          EOF
+      
+      - name: Add CSS for deployment cards
+        run: |
+          python3 << 'EOF'
+          import re
+          
+          with open('index.html', 'r') as f:
+              html_content = f.read()
+          
+          # CSS to add
+          css_code = """
+        .deployment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .deployment-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .deployment-card:hover {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.2);
+            transform: translateY(-4px);
+        }
+        
+        .deployment-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .deployment-card p {
+            margin: 8px 0;
+            color: #555;
+            font-size: 0.95em;
+        }
+        
+        .deployment-card strong {
+            color: #333;
+        }"""
+          
+          # Check if CSS is already there
+          if ".deployment-grid" not in html_content:
+              # Find the closing style tag
+              pattern = r'(</style>)'
+              html_content = re.sub(pattern, f'{css_code}\n    </style>', html_content)
+              
+              with open('index.html', 'w') as f:
+                  f.write(html_content)
+          EOF
+      
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add deployments.json index.html
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update deployment status" && git push)
