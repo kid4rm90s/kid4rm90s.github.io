@@ -52,96 +52,98 @@ jobs:
           echo "timestamp=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
       
       - name: Update deployments.json
-        run: python3 << 'PYTHON_SCRIPT'
-import json
-from datetime import datetime
+        run: |
+          python3 << 'PYTHON_SCRIPT'
+          import json
+          from datetime import datetime
 
-# Initialize deployments.json if not exists
-try:
-    with open('deployments.json', 'r') as f:
-        deployments = json.load(f)
-except FileNotFoundError:
-    deployments = []
+          # Initialize deployments.json if not exists
+          try:
+              with open('deployments.json', 'r') as f:
+                  deployments = json.load(f)
+          except FileNotFoundError:
+              deployments = []
 
-repo_name = "${{ steps.parse.outputs.repo_name }}"
-new_deployment = {
-    "repo": repo_name,
-    "version": "${{ steps.parse.outputs.version }}",
-    "branch": "${{ steps.parse.outputs.branch }}",
-    "status": "${{ steps.parse.outputs.status }}",
-    "timestamp": "${{ steps.parse.outputs.timestamp }}"
-}
+          repo_name = "${{ steps.parse.outputs.repo_name }}"
+          new_deployment = {
+              "repo": repo_name,
+              "version": "${{ steps.parse.outputs.version }}",
+              "branch": "${{ steps.parse.outputs.branch }}",
+              "status": "${{ steps.parse.outputs.status }}",
+              "timestamp": "${{ steps.parse.outputs.timestamp }}"
+          }
 
-# Find and update existing repo or add new one
-existing_index = None
-for i, dep in enumerate(deployments):
-    if dep.get("repo") == repo_name:
-        existing_index = i
-        break
+          # Find and update existing repo or add new one
+          existing_index = None
+          for i, dep in enumerate(deployments):
+              if dep.get("repo") == repo_name:
+                  existing_index = i
+                  break
 
-if existing_index is not None:
-    deployments[existing_index] = new_deployment
-else:
-    deployments.append(new_deployment)
+          if existing_index is not None:
+              deployments[existing_index] = new_deployment
+          else:
+              deployments.append(new_deployment)
 
-# Sort by timestamp descending
-deployments.sort(key=lambda x: x["timestamp"], reverse=True)
+          # Sort by timestamp descending
+          deployments.sort(key=lambda x: x["timestamp"], reverse=True)
 
-with open('deployments.json', 'w') as f:
-    json.dump(deployments, f, indent=2)
-PYTHON_SCRIPT
+          with open('deployments.json', 'w') as f:
+              json.dump(deployments, f, indent=2)
+          PYTHON_SCRIPT
       
       - name: Update index.html with deployment status
-        run: python3 << 'PYTHON_SCRIPT'
-import json
-import re
-from datetime import datetime
+        run: |
+          python3 << 'PYTHON_SCRIPT'
+          import json
+          import re
+          from datetime import datetime
 
-with open('deployments.json', 'r') as f:
-    deployments = json.load(f)
+          with open('deployments.json', 'r') as f:
+              deployments = json.load(f)
 
-# Generate deployment status HTML
-deployment_html = '    <div class="section">\n'
-deployment_html += '        <h2>📦 Deployment Status</h2>\n'
-deployment_html += '        <div class="deployment-grid">\n'
+          # Generate deployment status HTML
+          deployment_html = '    <div class="section">\n'
+          deployment_html += '        <h2>Deployment Status</h2>\n'
+          deployment_html += '        <div class="deployment-grid">\n'
 
-if deployments:
-    for dep in deployments:
-        timestamp = dep["timestamp"]
-        dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-        formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
-        status_badge = '✅' if dep["status"] == "success" else '❌'
-        
-        deployment_html += '            <div class="deployment-card">\n'
-        deployment_html += f'                <h3>{dep["repo"]}</h3>\n'
-        deployment_html += f'                <p><strong>Version:</strong> {dep["version"]}</p>\n'
-        deployment_html += f'                <p><strong>Branch:</strong> {dep["branch"]}</p>\n'
-        deployment_html += f'                <p><strong>Status:</strong> {status_badge} {dep["status"]}</p>\n'
-        deployment_html += f'                <p><strong>Updated:</strong> {formatted_time}</p>\n'
-        deployment_html += '            </div>\n'
-else:
-    deployment_html += '            <div style="padding: 40px 20px; text-align: center; color: #999; grid-column: 1/-1;">\n'
-    deployment_html += '                <p>No deployments tracked yet. Trigger the workflow to start tracking!</p>\n'
-    deployment_html += '            </div>\n'
+          if deployments:
+              for dep in deployments:
+                  timestamp = dep["timestamp"]
+                  dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                  formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                  status_badge = '✅' if dep["status"] == "success" else '❌'
+                  
+                  deployment_html += '            <div class="deployment-card">\n'
+                  deployment_html += f'                <h3>{dep["repo"]}</h3>\n'
+                  deployment_html += f'                <p><strong>Version:</strong> {dep["version"]}</p>\n'
+                  deployment_html += f'                <p><strong>Branch:</strong> {dep["branch"]}</p>\n'
+                  deployment_html += f'                <p><strong>Status:</strong> {status_badge} {dep["status"]}</p>\n'
+                  deployment_html += f'                <p><strong>Updated:</strong> {formatted_time}</p>\n'
+                  deployment_html += '            </div>\n'
+          else:
+              deployment_html += '            <div style="padding: 40px 20px; text-align: center; color: #999; grid-column: 1/-1;">\n'
+              deployment_html += '                <p>No deployments tracked yet. Trigger the workflow to start tracking!</p>\n'
+              deployment_html += '            </div>\n'
 
-deployment_html += '        </div>\n'
-deployment_html += '    </div>'
+          deployment_html += '        </div>\n'
+          deployment_html += '    </div>'
 
-with open('index.html', 'r') as f:
-    html_content = f.read()
+          with open('index.html', 'r') as f:
+              html_content = f.read()
 
-pattern = r'<div class="section">\s*<h2>.*?Deployment Status.*?</div>\s*</div>'
+          pattern = r'<div class="section">\s*<h2>.*?Deployment Status.*?</div>\s*</div>'
 
-if re.search(pattern, html_content, re.DOTALL):
-    html_content = re.sub(pattern, deployment_html, html_content, count=1, flags=re.DOTALL)
-else:
-    indent = '            '
-    html_to_insert = indent + deployment_html.replace('\n', '\n' + indent)
-    html_content = html_content.replace('</main>', '\n' + html_to_insert + '\n        </main>')
+          if re.search(pattern, html_content, re.DOTALL):
+              html_content = re.sub(pattern, deployment_html, html_content, count=1, flags=re.DOTALL)
+          else:
+              indent = '            '
+              html_to_insert = indent + deployment_html.replace('\n', '\n' + indent)
+              html_content = html_content.replace('</main>', '\n' + html_to_insert + '\n        </main>')
 
-with open('index.html', 'w') as f:
-    f.write(html_content)
-PYTHON_SCRIPT
+          with open('index.html', 'w') as f:
+              f.write(html_content)
+          PYTHON_SCRIPT
       
       - name: Commit changes
         run: |
