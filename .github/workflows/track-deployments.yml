@@ -182,20 +182,27 @@ jobs:
               html_content = f.read()
 
           # Find and replace the deployment section
-          pattern = r'<div class="section">\s*<h2>Deployment Status</h2>.*?</div>\s*</div>'
+          # More precise pattern that matches the complete nested structure
+          pattern = r'<div class="section">\s*<h2>Deployment Status</h2>\s*<div class="deployment-grid">.*?</div>\s*</div>\s*</div>'
 
           if re.search(pattern, html_content, re.DOTALL):
               html_content = re.sub(pattern, deployment_html, html_content, count=1, flags=re.DOTALL)
               print("Updated existing deployment section")
           else:
-              # Add before closing main tag if section doesn't exist
-              if '</main>' in html_content:
-                  indent = '        '
-                  html_to_insert = indent + deployment_html.replace('\n', '\n' + indent)
-                  html_content = html_content.replace('</main>', '\n' + html_to_insert + '\n    </main>')
-                  print("Added new deployment section")
+              # Fallback: try simpler pattern
+              pattern2 = r'<div class="section">\s*<h2>Deployment Status</h2>.*?<div class="deployment-grid">.*?</div>\s*</div>'
+              if re.search(pattern2, html_content, re.DOTALL):
+                  html_content = re.sub(pattern2, deployment_html, html_content, count=1, flags=re.DOTALL)
+                  print("Updated existing deployment section (fallback pattern)")
               else:
-                  print("Warning: Could not find </main> tag in index.html")
+                  # Add before closing main tag if section doesn't exist
+                  if '</main>' in html_content:
+                      indent = '        '
+                      html_to_insert = indent + deployment_html.replace('\n', '\n' + indent)
+                      html_content = html_content.replace('</main>', '\n' + html_to_insert + '\n    </main>')
+                      print("Added new deployment section (no existing section found)")
+                  else:
+                      print("Warning: Could not find </main> tag in index.html")
 
           with open(index_file, 'w', encoding='utf-8') as f:
               f.write(html_content)
